@@ -2,9 +2,45 @@
 //
 
 #include <iostream>
+#include <vector>
+#include <deque>
+#include <list>
+#include <boost/container/slist.hpp>
+#include "mmap_containers.hpp"
 
 int main()
 {
+    mmap::vector_proxy<int> v("C:\\Users\\linji\\Desktop\\test.mmap", "vec");
+    mmap::deque_proxy<int> d("C:\\Users\\linji\\Desktop\\test.mmap", "deq");
+    mmap::list_proxy<int> l("C:\\Users\\linji\\Desktop\\test.mmap", "list");
+    mmap::slist_proxy<int> sl("C:\\Users\\linji\\Desktop\\test.mmap", "slist");
+    mmap::stable_vector_proxy<int> sv("C:\\Users\\linji\\Desktop\\test.mmap", "svec");
+    
+    v.push_back(1);
+    v.push_back(2);
+    d.push_back(1);
+    d.push_back(2);
+    l.push_back(3);
+    l.push_back(4);
+    sl.push_front(5);
+    sl.push_front(6);
+    sv.push_back(7);
+    sv.push_back(8);
+    for (auto& i : v) {
+        std::cout << i << std::endl;
+    }
+    for (auto& i : d) {
+        std::cout << i << std::endl;
+    }
+    for (auto& i : l) {
+        std::cout << i << std::endl;
+    }
+    for (auto& i : sl) {
+        std::cout << i << std::endl;
+    }
+    for (auto& i : sv) {
+        std::cout << i << std::endl;
+    }
     std::cout << "Hello World!\n";
 }
 
