@@ -2,47 +2,81 @@
 //
 
 #include <iostream>
-#include <vector>
-#include <deque>
-#include <list>
-#include <boost/container/slist.hpp>
 #include "mmap_containers.hpp"
+
+struct User_1 {
+	int id;
+	int age;
+};
+
+struct User_2 {
+public:
+	User_2(mmap::managed_mapped_file_t& file) : scores(file) { this->id = 0; }
+	int id;
+	mmap::vector<int> scores;
+};
 
 int main()
 {
-	mmap::vector_proxy<int> v("C:\\Users\\matridx\\Desktop\\test.mmap", "vec");
-	mmap::deque_proxy<int> d("C:\\Users\\matridx\\Desktop\\test.mmap", "deq");
-	mmap::list_proxy<int> l("C:\\Users\\matridx\\Desktop\\test.mmap", "list");
-	mmap::slist_proxy<int> sl("C:\\Users\\matridx\\Desktop\\test.mmap", "slist");
-	mmap::stable_vector_proxy<int> sv("C:\\Users\\matridx\\Desktop\\test.mmap", "svec");
-
-	v.push_back(1);
-	v.push_back(2);
-	d.push_back(1);
-	d.push_back(2);
-	l.push_back(3);
-	l.push_back(4);
-	sl.push_front(5);
-	sl.push_front(6);
-	sv.push_back(7);
-	sv.push_back(8);
-
-	for (auto& i : v) {
-		std::cout << i << std::endl;
+	mmap::vector_proxy<User_1> users(R"(C:\Users\matridx\Desktop\test.mmap)", "user_1");
+	mmap::vector_proxy<User_2> users_2(R"(C:\Users\matridx\Desktop\test.mmap)", "user_2");
+	for (int i = 0; i < 10; i++) {
+		users.push_back({ i, i });
+		users_2.emplace_back(users_2.get_managed_mapped_file());
+		users_2.back().id = i;
+		users_2.back().scores.push_back(i);
+		users_2.back().scores.push_back(i * 2);
 	}
-	for (auto& i : d) {
-		std::cout << i << std::endl;
+	for (int i = 0; i < 10; i++) {
+		std::cout << users[i].id << " " << users[i].age << std::endl;
+		std::cout << users_2[i].id << " ";
+		for (int j = 0; j < users_2[i].scores.size(); j++) {
+			std::cout << users_2[i].scores[j] << " ";
+		}
+		std::cout << std::endl;
 	}
-	for (auto& i : l) {
-		std::cout << i << std::endl;
+	mmap::vector_proxy<int> vp(R"(C:\Users\xxx\Desktop\test.mmap)", "vector_proxy");
+	for (int i = 0; i < 100; i++)
+	{
+		vp.push_back(i);
+		vp.emplace_back(i * 2);
 	}
-	for (auto& i : sl) {
-		std::cout << i << std::endl;
+	std::cout << "size: " << vp.size() << std::endl;
+	std::cout << "capacity: " << vp.capacity() << std::endl;
+	std::cout << "at(0): " << vp.at(0) << std::endl;
+	std::cout << "at(1): " << vp[1] << std::endl;
+	mmap::vector_proxy<mmap::vector<int>> vvp(R"(C:\Users\xxx\Desktop\test.mmap)", "vector_proxy2");
+	vvp.emplace_back(vvp.get_managed_mapped_file());
+	auto pVint = &vvp[0];
+	for (int i = 0; i < 100; i++) {
+		pVint->push_back(i);
+		pVint->emplace_back(i * 2);
 	}
-	for (auto& i : sv) {
-		std::cout << i << std::endl;
+	std::cout << "size: " << vvp.size() << std::endl;
+	std::cout << "size: " << vvp[0].size() << std::endl;
+	for (auto& v : *pVint) {
+		std::cout << v << " ";
 	}
-	std::cout << "Hello World!\n";
+	mmap::vector_proxy<mmap::map<int, int>> vmp(R"(C:\Users\xxx\Desktop\test.mmap)", "vmap_proxy");
+	vmp.emplace_back(vmp.get_managed_mapped_file());
+	auto pVmap = &vmp[0];
+	for (int i = 0; i < 100; i++) {
+		pVmap->insert(std::make_pair(i, i * 2));
+	}
+	auto& pVmapRef = *pVmap;
+	for (auto& v : pVmapRef) {
+		std::cout << v.first << " " << v.second << std::endl;
+	}
+	mmap::map_proxy<int, mmap::vector<int>> mp(R"(C:\Users\xxx\Desktop\test.mmap)", "mapv_proxy");
+	auto& pmpvRef = mp[0];
+	for (int i = 0; i < 100; i++) {
+		pmpvRef.push_back(i);
+		pmpvRef.emplace_back(i * 2);
+	}
+	std::cout << "size: " << pmpvRef.size() << std::endl;
+	for (auto& v : pmpvRef) {
+		std::cout << v << " ";
+	}
 }
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
