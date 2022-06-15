@@ -4,6 +4,8 @@
 
 mmap_containers是一个基于boost的interprocess库所构建的一个C++轻量的内存映射文件（mmap）容器库。
 
+依赖C++ 20, Boost::iterprocess
+
 包括下列容器：
 
 - vector
