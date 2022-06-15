@@ -19,7 +19,6 @@ namespace mmap {
 	template <typename T>
 	using allocator_t = bipc::node_allocator<T, mapped_segment_manager_t>;
 
-
 	template <typename T>
 	concept _Container = requires (T t) {
 		T::value_type;
@@ -122,19 +121,43 @@ namespace mmap {
 		}
 
 		constexpr iterator insert(const_iterator _Where, const value_type& _Val) {
-			return this->p->insert(_Where, _Val);
+			try {
+				return this->p->insert(_Where, _Val);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->insert(_Where, _Val);
+			}
 		}
 
 		constexpr iterator insert(const_iterator _Where, value_type&& _Val) {
-			return this->p->insert(_Where, _Val);
+			try {
+				return this->p->insert(_Where, _Val);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->insert(_Where, _Val);
+			}
 		}
 
 		constexpr iterator insert(const_iterator _Where, const size_t _Count, const value_type& _Val) {
-			return this->p->insert(_Where, _Count, _Val);
+			try {
+				return this->p->insert(_Where, _Count, _Val);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->insert(_Where, _Count, _Val);
+			}
 		}
 
 		constexpr iterator insert(const_iterator _Where, iterator _First, iterator _Last) {
-			return this->p->insert(_Where, _First, _Last);
+			try {
+				return this->p->insert(_Where, _First, _Last);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->insert(_Where, _First, _Last);
+			}
 		}
 
 		constexpr iterator erase(const_iterator _Where) noexcept {
@@ -161,7 +184,7 @@ namespace mmap {
 			this->expand_file(this->m_file.get_size());
 		}
 
-		constexpr managed_mapped_file_t& get_managed_mapped_file() noexcept{
+		constexpr managed_mapped_file_t& get_managed_mapped_file() noexcept {
 			return this->m_file;
 		}
 
@@ -195,7 +218,7 @@ namespace mmap {
 		basic_liner_container_proxy_extend_1(std::string file_name, std::string tag_name, size_t size = 0)
 			:basic_liner_container_proxy<_Container>
 			(file_name, tag_name, size) {};
-		
+
 		constexpr void push_back(const value_type& _Val) {
 			try {
 				this->p->push_back(_Val);
@@ -290,6 +313,7 @@ namespace mmap {
 		vector_proxy(std::string file_name, std::string tag_name, size_t size = 0)
 			:basic_liner_container_proxy_extend_1<bipc::vector<T, allocator_t<T>>>
 			(file_name, tag_name, size) {};
+
 		constexpr void reserve(size_t size) {
 			try {
 				this->p->reserve(size);
@@ -298,6 +322,10 @@ namespace mmap {
 				this->expand_file(sizeof(T) * size);
 				this->p->reserve(size);
 			}
+		}
+
+		constexpr size_t capacity() const noexcept {
+			return this->p->capacity();
 		}
 	};
 
@@ -333,7 +361,7 @@ namespace mmap {
 
 	template <typename T>
 	using deque_proxy = basic_liner_container_proxy_extend_2<bipc::deque<T, allocator_t<T>>>;
-	
+
 	template <typename T>
 	class list_proxy :public
 		basic_liner_container_proxy_extend_2<bipc::list<T, allocator_t<T>>> {
@@ -410,17 +438,26 @@ namespace mmap {
 		constexpr void reverse() noexcept {
 			this->p->reverse();
 		}
+
+		constexpr auto unique() {
+			this->p->unique();
+		}
+
+		template <class _Pr2>
+		auto unique(_Pr2 _Pred) {
+			this->p->unique(_Pred);
+		}
 	};
 
 	template <typename T>
-	class slist_proxy: public
-		basic_liner_container_proxy<bipc::slist<T, allocator_t<T>>>{
+	class slist_proxy : public
+		basic_liner_container_proxy<bipc::slist<T, allocator_t<T>>> {
 	public:
 		using value_type = T;
 		using iterator = basic_liner_container_proxy_extend_2<bipc::list<T, allocator_t<T>>>::iterator;
 		using const_iterator = basic_liner_container_proxy_extend_2<bipc::list<T, allocator_t<T>>>::const_iterator;
 		using list = bipc::slist<T, allocator_t<T>>;
-		
+
 		slist_proxy(std::string file_name, std::string tag_name, size_t size = 0)
 			:basic_liner_container_proxy<bipc::slist<T, allocator_t<T>>>
 			(file_name, tag_name, size) {};
@@ -505,15 +542,94 @@ namespace mmap {
 		constexpr void pop_front() noexcept {
 			this->p->pop_front();
 		}
+
+		constexpr auto unique() {
+			this->p->unique();
+		}
+
+		template <class _Pr2>
+		auto unique(_Pr2 _Pred) {
+			this->p->unique(_Pred);
+		}
+
+		constexpr iterator before_begin() noexcept {
+			return this->p->before_begin();
+		}
+
+		constexpr const_iterator before_begin() const noexcept {
+			return this->p->before_begin();
+		}
+
+		constexpr const_iterator cbefore_begin() const noexcept {
+			return this->p->cbefore_begin();
+		}
+
+		template <class... _Valty>
+		constexpr iterator emplace(const_iterator _Where, _Valty&&... _Val) {
+			try {
+				return this->p->emplace(_Where, _Val);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->emplace(_Where, _Val);
+			}
+		}
+
+		template <class... _Valty>
+		constexpr iterator emplace_after(const_iterator _Where, _Valty&&... _Val) {
+			try {
+				return this->p->emplace_after(_Where, _Val);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->emplace_after(_Where, _Val);
+			}
+		}
+
+		template <class... _Valty>
+		constexpr iterator emplace_front(_Valty&&... _Val) {
+			try {
+				return this->p->emplace_front(_Val);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->emplace_front(_Val);
+			}
+		}
+
+		constexpr iterator insert_after(const_iterator prev_p, std::initializer_list<value_type> il) {
+			try {
+				return this->p->insert_after(prev_p, il);
+			}
+			catch (...) {
+				this->expand_file();
+				return this->p->insert_after(prev_p, il);
+			}
+		}
+
+		constexpr void resize(const size_t size) {
+			try {
+				this->p->resize(size);
+			}
+			catch (...) {
+				this->expand_file(sizeof(value_type) * size);
+				this->p->resize(size);
+			}
+		}
 	};
 
 	template <typename T>
 	class stable_vector_proxy :public
 		basic_liner_container_proxy_extend_1<bipc::stable_vector<T, allocator_t<T>>> {
 	public:
+		using value_type = T;
+		using iterator = basic_liner_container_proxy_extend_1<bipc::stable_vector<T, allocator_t<T>>>::iterator;
+		using const_iterator = basic_liner_container_proxy_extend_1<bipc::stable_vector<T, allocator_t<T>>>::const_iterator;
+
 		stable_vector_proxy(std::string file_name, std::string tag_name, size_t size = 0)
 			:basic_liner_container_proxy_extend_1<bipc::stable_vector<T, allocator_t<T>>>
 			(file_name, tag_name, size) {};
+
 		constexpr void reserve(size_t size) {
 			try {
 				this->p->reserve(size);
@@ -522,6 +638,26 @@ namespace mmap {
 				this->expand_file(sizeof(T) * size);
 				this->p->reserve(size);
 			}
+		}
+
+		constexpr size_t capacity() const noexcept {
+			return this->p->capacity();
+		}
+
+		constexpr size_t index_of(const_iterator itr) const noexcept {
+			return this->p->index_of(itr);
+		}
+
+		constexpr size_t index_of(iterator itr) noexcept {
+			return this->p->index_of(itr);
+		}
+
+		constexpr const_iterator nth(size_t n) const noexcept {
+			return this->p->nth(n);
+		}
+
+		constexpr iterator nth(size_t n) noexcept {
+			return this->p->nth(n);
 		}
 	};
 }
