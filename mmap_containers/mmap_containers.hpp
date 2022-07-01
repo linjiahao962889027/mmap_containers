@@ -13,6 +13,10 @@
 #include <boost/interprocess/containers/set.hpp>
 #include <boost/interprocess/containers/map.hpp>
 #include <boost/interprocess/containers/string.hpp>
+#include <boost/functional/hash.hpp>
+#include <boost/unordered_map.hpp>
+#include <functional>
+#include <string>
 
 
 namespace mmap {
@@ -20,13 +24,27 @@ namespace mmap {
 	using managed_mapped_file_t = bipc::managed_mapped_file;
 	using mapped_segment_manager_t = bipc::managed_mapped_file::segment_manager;
 
-	using string = bipc::string;
-
 	template <typename T>
 	using allocator_t = bipc::node_allocator<T, mapped_segment_manager_t>;
 
 	template <typename T>
 	using less_t = std::less<T>;
+
+	template <typename T>
+	class basic_string :public bipc::basic_string < T, std::char_traits<T>, allocator_t<T> > {
+	public:
+		operator std::string() const {
+			std::string ret;
+			ret.assign(this->c_str(), this->size());
+			return ret;
+		}
+		operator =(const std::string& str) {
+			this->assign(str.c_str(), str.size());
+		}
+	};
+
+	using string = basic_string<char>;
+	using wstring = basic_string<wchar_t>;
 
 	template <typename T>
 	concept _Container = requires (T t) {
@@ -805,18 +823,18 @@ namespace mmap {
 	template<typename _Key, typename _Value>
 	using pair_t = std::pair<_Key, _Value>;
 
-	template<typename _Key, typename _Value, typename _Pr = less_t<_Key>>
-	class map : public bipc::map<_Key, _Value, _Pr, allocator_t<pair_t<const _Key, _Value>>> {
+	template<typename Container>
+	class map_basic : public Container {
 	public:
-		using key_type = _Key;
-		using mapped_type = _Value;
-		using value_type = pair_t<const _Key, _Value>;
-		using container = bipc::map<_Key, _Value, _Pr, allocator_t<pair_t<const _Key, _Value>>>;
+		using container = Container;
+		using key_type = container::key_type;
+		using mapped_type = container::mapped_type;
+		using value_type = container::value_type;
 		using iterator = container::iterator;
 		using const_iterator = container::const_iterator;
 
-		map(managed_mapped_file_t& mapped_file)
-			:container(allocator_t<pair_t<const _Key, _Value>>(mapped_file.get_segment_manager())) {
+		map_basic(managed_mapped_file_t& mapped_file)
+			:container(allocator_t<value_type>(mapped_file.get_segment_manager())) {
 			this->p_mapped_file = &mapped_file;
 		};
 
@@ -848,16 +866,22 @@ namespace mmap {
 	};
 
 	template<typename _Key, typename _Value, typename _Pr = less_t<_Key>>
-	class map_proxy {
+	using map = map_basic<bipc::map<_Key, _Value, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
+
+	template<typename _Key, typename _Value, typename _Hash = boost::hash<_Key>, typename _Pr = std::equal_to<_Key>>
+	using unordered_map = map_basic<boost::unordered_map<_Key, _Value, _Hash, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
+
+	template<typename Container>
+	class map_basic_proxy {
 	public:
-		using key_type = _Key;
-		using mapped_type = _Value;
-		using value_type = pair_t<const _Key, _Value>;
-		using container = bipc::map<_Key, _Value, _Pr, allocator_t<pair_t<const _Key, _Value>>>;
+		using container = Container;
+		using key_type = container::key_type;
+		using mapped_type = container::mapped_type;
+		using value_type = container::value_type;
 		using iterator = container::iterator;
 		using const_iterator = container::const_iterator;
 
-		map_proxy(std::string file_name, std::string tag_name, size_t size = 0) {
+		map_basic_proxy(std::string file_name, std::string tag_name, size_t size = 0) {
 			this->file_name = std::move(file_name);
 			this->tag_name = std::move(tag_name);
 			if (!size) {
@@ -1005,10 +1029,28 @@ namespace mmap {
 			return this->p->erase(_Where);
 		}
 
+		constexpr auto find(const key_type& _Keyval) noexcept {
+			return this->p->find(_Keyval);
+		}
+
+		constexpr auto find(const key_type& _Keyval) const noexcept {
+			return this->p->find(_Keyval);
+		}
+
+		constexpr size_t count(const key_type& _Keyval) const noexcept {
+			return this->p->count(_Keyval);
+		}
+
 	private:
 		managed_mapped_file_t m_file;
 		std::string file_name;
 		std::string tag_name;
 		container* p = nullptr;
 	};
+
+	template<typename _Key, typename _Value, typename _Pr = less_t<_Key>>
+	using map_proxy = basic_map_proxy<bipc::map<_Key, _Value, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
+
+	template<typename _Key, typename _Value, typename _Hash = boost::hash<_Key>, typename _Pr = std::equal_to<_Key>>
+	using unordered_map_proxy = basic_map_proxy<boost::unordered_map<_Key, _Value, _Hash, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
 }
