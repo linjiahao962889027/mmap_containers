@@ -30,21 +30,23 @@ namespace mmap {
 	template <typename T>
 	using less_t = std::less<T>;
 
-	template <typename T>
-	class basic_string :public bipc::basic_string < T, std::char_traits<T>, allocator_t<T> > {
+	/*template <typename T>
+	class basic_string :public bipc::basic_string <T> {
 	public:
-		operator std::string() const {
-			std::string ret;
+		basic_string() :bipc::basic_string <T>() {};
+		basic_string(const T* str) :bipc::basic_string <T>() {
+			this->assign(str);
+		}
+		operator std::basic_string<T>() const {
+			std::basic_string<T> ret;
 			ret.assign(this->c_str(), this->size());
 			return ret;
 		}
-		operator =(const std::string& str) {
+		basic_string<T>& operator =(const std::basic_string<T>& str) {
 			this->assign(str.c_str(), str.size());
+			return *this;
 		}
-	};
-
-	using string = basic_string<char>;
-	using wstring = basic_string<wchar_t>;
+	};*/
 
 	template <typename T>
 	concept _Container = requires (T t) {
@@ -75,6 +77,82 @@ namespace mmap {
 
 	template <typename T>
 	using stable_vector = basic_liner_container<bipc::stable_vector<T, allocator_t<T>>>;
+
+	template <typename T>
+	class basic_string : public vector<T> {
+	public:
+		const T* c_str() const {
+			return this->data();
+		}
+		basic_string(managed_mapped_file_t& mapped_file) :vector<T>(mapped_file) {};
+		operator std::basic_string<T>() const {
+			std::basic_string<T> ret;
+			ret.assign(this->c_str(), this->size());
+			return ret;
+		}
+		basic_string<T>& operator =(const std::basic_string<T>& str) {
+			this->clear();
+			for (auto c : str) {
+				this->push_back(c);
+			}
+			return *this;
+		}
+		void append(const std::basic_string<T>& str) {
+			for (auto c : str) {
+				this->push_back(c);
+			}
+		}
+		void append(const basic_string<T>& str) {
+			for (auto c : str) {
+				this->push_back(c);
+			}
+		}
+		void append(const T& ch) {
+			this->push_back(ch);
+		}
+		basic_string<T> substr(size_t pos, size_t len) {
+			basic_string<T> ret;
+			for (size_t i = pos; i < pos + len; i++) {
+				ret.push_back(this->at(i));
+			}
+			return ret;
+		}
+		basic_string<T> substr(size_t pos) {
+			return this->substr(pos, this->size() - pos);
+		}
+		basic_string<T> operator +(const std::basic_string<T>& str) {
+			basic_string<T> ret(*this);
+			ret.append(str);
+			return ret;
+		}
+		basic_string<T> operator +(const basic_string<T>& str) {
+			basic_string<T> ret(*this);
+			ret.append(str);
+			return ret;
+		}
+		basic_string<T> operator +(const T& ch) {
+			basic_string<T> ret(*this);
+			ret.push_back(ch);
+			return ret;
+		}
+		basic_string<T>& operator +=(const std::basic_string<T>& str) {
+			for (auto c : str) {
+				this->push_back(c);
+			}
+			return *this;
+		}
+		basic_string<T>& operator +=(const basic_string<T>& str) {
+			this->append(str);
+			return *this;
+		}
+		friend std::ostream& operator << (std::ostream& output, const basic_string<T>& str) {
+			output << str.c_str();
+			return output;
+		}
+	};
+
+	using string = basic_string<char>;
+	using wstring = basic_string<wchar_t>;
 
 	template <typename T, typename _Pr = less_t<T>>
 	using set = basic_liner_container<bipc::set<T, _Pr, allocator_t<T>>>;
@@ -838,14 +916,14 @@ namespace mmap {
 			this->p_mapped_file = &mapped_file;
 		};
 
-		constexpr value_type& operator[](const _Key& key) {
+		constexpr value_type& operator[](const key_type& key) {
 			iterator itr = this->find(key);
 			if (itr == this->end()) {
-				if constexpr (std::is_constructible<_Value, managed_mapped_file_t&>::value) {
-					this->emplace(value_type(key, _Value(*(this->p_mapped_file))));
+				if constexpr (std::is_constructible<value_type, managed_mapped_file_t&>::value) {
+					this->emplace(value_type(key, value_type(*(this->p_mapped_file))));
 				}
 				else {
-					this->emplace(value_type(key, _Value()));
+					this->emplace(value_type(key, value_type()));
 				}
 				return this->at(key);
 			}
@@ -854,7 +932,7 @@ namespace mmap {
 			}
 		}
 
-		constexpr const value_type& operator[](const _Key& key) const {
+		constexpr const value_type& operator[](const key_type& key) const {
 			const_iterator itr = this->find(key);
 			if (itr == this->end()) {
 				throw std::out_of_range("key not found");
@@ -925,7 +1003,7 @@ namespace mmap {
 			this->expand_file(this->m_file.get_size());
 		}
 
-		mapped_type& operator[](_Key key) {
+		mapped_type& operator[](const key_type& key) {
 			iterator itr = this->p->find(key);
 			if (itr == this->p->end()) {
 				try {
@@ -952,7 +1030,7 @@ namespace mmap {
 			}
 		}
 
-		const mapped_type& operator[](_Key key) const {
+		const mapped_type& operator[](const key_type& key) const {
 			const_iterator itr = this->p->find(key);
 			if (itr == this->p->end()) {
 				throw std::out_of_range("key not found");
@@ -1049,8 +1127,8 @@ namespace mmap {
 	};
 
 	template<typename _Key, typename _Value, typename _Pr = less_t<_Key>>
-	using map_proxy = basic_map_proxy<bipc::map<_Key, _Value, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
+	using map_proxy = map_basic_proxy<bipc::map<_Key, _Value, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
 
 	template<typename _Key, typename _Value, typename _Hash = boost::hash<_Key>, typename _Pr = std::equal_to<_Key>>
-	using unordered_map_proxy = basic_map_proxy<boost::unordered_map<_Key, _Value, _Hash, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
+	using unordered_map_proxy = map_basic_proxy<boost::unordered_map<_Key, _Value, _Hash, _Pr, allocator_t<pair_t<const _Key, _Value>>>>;
 }
